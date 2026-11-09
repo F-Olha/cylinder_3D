@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="uk"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Циліндр: утворення, перерізи, розгортка</title>
+<style>
+:root{--bg:#f1f5f9;--fg:#0f172a;--mut:#64748b;--card:#fff;--bd:#e2e8f0;--acc:#2563eb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1220;--fg:#f1f5f9;--mut:#94a3b8;--card:#162033;--bd:#2b3a55;--acc:#60a5fa}}
+:root[data-theme="dark"]{--bg:#0b1220;--fg:#f1f5f9;--mut:#94a3b8;--card:#162033;--bd:#2b3a55;--acc:#60a5fa}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:14px}
+#w{max-width:960px;margin:0 auto}
+h1{font-size:21px;margin:2px 0 10px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button,.ctl button{font:inherit;font-weight:600;padding:8px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);cursor:pointer}
+.tabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:10px;position:relative}
+canvas{width:100%;display:block;touch-action:none;cursor:grab}
+#cap{position:absolute;left:12px;right:12px;bottom:10px;background:rgba(15,23,42,.8);color:#fff;border-radius:10px;padding:8px 12px;font-size:15px;pointer-events:none}
+.ctl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.ctl input[type=range]{flex:1;min-width:140px}.ctl label{font-size:14px;color:var(--mut)}
+#info{margin-top:4px;padding:12px 14px}.k{font-size:13px;color:var(--mut);margin:6px 2px}
+</style></head><body><div id="w">
+<h1>Циліндр: утворення, перерізи, розгортка</h1>
+<div class="tabs" id="tabs"></div>
+<div class="card"><canvas id="cv"></canvas><div id="cap"></div></div>
+<div class="ctl"><button id="pl">⏸ Пауза</button><input type="range" id="sc" min="0" max="1" step="0.001" value="0"><label><input type="checkbox" id="au" checked> рух камери</label></div>
+<div class="card" id="info"></div>
+<p class="k">Перетягуйте сцену, щоб обертати. Повзунок перемотує «відео». R — радіус основи, H — висота, d — відстань від осі до січної площини.</p>
+</div>
+<script>
+const $=i=>document.getElementById(i),cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)),ez=x=>x*x*(3-2*x);
+const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],mul=(a,k)=>[a[0]*k,a[1]*k,a[2]*k],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],nm=a=>Math.hypot(...a),avg=a=>mul(a.reduce((s,p)=>add(s,p),[0,0,0]),1/a.length);
+const R=2,H=4.5,N=36,Y0=-.55,DD=1.2,H0=2.2,PI=Math.PI,T2=2*PI,K=[0,0,1],O3=[0,0,0];
+const r0=[Math.cos(Y0),-Math.sin(Y0),0],nu=[-Math.sin(Y0),-Math.cos(Y0),0];
+const angTo=n=>{const a=Math.atan2(nu[1],nu[0])-Math.atan2(n[1],n[0]);return Math.atan2(Math.sin(a),Math.cos(a))};
+function rot(v,a,t){const c=Math.cos(t),s=Math.sin(t);return add(add(mul(v,c),mul(cross(a,v),s)),mul(a,dot(a,v)*(1-c)))}
+const arc=(a0,a1,z,n)=>Array.from({length:n+1},(_,i)=>{const t=a0+(a1-a0)*i/n;return[R*Math.cos(t),R*Math.sin(t),z]});
+function piece(a0,a1,z0,z1,cut,cc,piv,ax,ang,mag,sg){
+const full=a1-a0>6.28,n=full?N:Math.max(8,Math.round(N*(a1-a0)/T2)),A=arc(a0,a1,z0,n),B=arc(a0,a1,z1,n),F=[];
+for(let i=0;i<n;i++)F.push({p:[A[i],A[i+1],B[i+1],B[i]],t:'s'});
+F.push({p:A,t:cc==1?'c':'e'},{p:B,t:cc==2?'c':'e'});if(cut)F.push({p:cut,t:'c'});
+const ctr=avg(F.flatMap(f=>f.p));if(sg==null)sg=dot(sub(ctr,piv),r0)>=0?1:-1;
+return{F,ctr,piv,ax,ang,off:mul(r0,sg*mag)}}
+const w=Math.sqrt(R*R-DD*DD),al=Math.acos(DD/R);
+const cutA=[[R,0,0],[-R,0,0],[-R,0,H],[R,0,H]],cutC=[[DD,-w,0],[DD,w,0],[DD,w,H],[DD,-w,H]];
+const CUT={
+1:{pcs:[piece(0,PI,0,H,cutA,0,O3,K,angTo([0,-1]),R+.5),piece(PI,T2,0,H,cutA,0,O3,K,angTo([0,1]),R+.5)],
+pl:[[-3.4,0,-.6],[3.4,0,-.6],[3.4,0,H+.6],[-3.4,0,H+.6]],sh:[0,0,6],lab:[{pc:0,p:[0,0,0],t:'2R',dx:0,dy:22},{pc:0,p:[-R,0,H/2],t:'H',dx:-18,dy:0}],segs:[],
+cap:['Січна площина опускається зверху вниз, як ніж, і проходить через вісь циліндра.','Осьовий переріз — прямокутник зі сторонами 2R і H. S = 2R·H.']},
+2:{pcs:[piece(0,T2,H0,H,null,1,[0,0,H0],r0,-PI/2,R+.6,-1),piece(0,T2,0,H0,null,2,[0,0,H0],r0,PI/2,R+.6,1)],
+pl:[[-3.4,-3.4,H0],[3.4,-3.4,H0],[3.4,3.4,H0],[-3.4,3.4,H0]],sh:mul(r0,-8),lab:[{pc:0,p:[R/2,0,H0],t:'R',dx:0,dy:-8}],segs:[{pc:0,a:[0,0,H0],b:[R,0,H0],t:'',w:[.88,9]}],
+cap:['Січна площина входить збоку, як ніж, перпендикулярно до осі циліндра.','Переріз, перпендикулярний до осі, — круг радіуса R. S = πR².']},
+3:{pcs:[piece(-al,al,0,H,cutC,0,[DD,0,0],K,angTo([-1,0]),w+.5),piece(al,T2-al,0,H,cutC,0,[DD,0,0],K,angTo([1,0]),R+.3)],
+pl:[[DD,-3.4,-.6],[DD,3.4,-.6],[DD,3.4,H+.6],[DD,-3.4,H+.6]],sh:[0,0,6],lab:[{pc:0,p:[DD,0,0],t:'2√(R²−d²)',dx:0,dy:22},{pc:0,p:[DD,w,H/2],t:'H',dx:18,dy:0},{pc:1,p:[DD/2,0,0],t:'d',dx:0,dy:18,w:[.1,.5]}],segs:[{pc:1,a:O3,b:[DD,0,0],t:'',w:[.1,.5]}],
+cap:['Січна площина опускається зверху вниз паралельно осі, на відстані d від неї.','Переріз, паралельний осі, — прямокутник зі сторонами H і 2√(R²−d²).']}};
+const INFO=['<b>Циліндр — тіло обертання прямокутника.</b> Сторона, що лежить на осі (OO₁), — <b>висота H</b>. Сторона, перпендикулярна до осі (OB), — <b>радіус R</b> основи. Протилежна осі сторона BC — <b>твірна</b>, її довжина дорівнює H.',
+'<b>Осьовий переріз</b> — прямокутник зі сторонами 2R і H. S = 2R·H.','<b>Переріз площиною, перпендикулярною до осі</b> — круг радіуса R, що дорівнює основі. S = πR².',
+'<b>Переріз площиною, паралельною осі</b>, — прямокутник зі сторонами H і 2√(R² − d²), де d — відстань від осі до площини. S = 2H√(R² − d²).',
+'<b>Розгортка циліндра</b>: прямокутник 2πR × H (бічна поверхня) і два круги радіуса R. S<sub>біч</sub> = 2πRH, S<sub>повн</sub> = 2πR(R + H).'];
+const NAMES=['Утворення циліндра','Осьовий переріз','Переріз ⟂ осі','Переріз ∥ осі','Розгортка'];
+const cv=$('cv'),g=cv.getContext('2d');let cs=0,T=0,play=true,drag=null,baseYaw=Y0,pitch=.35,clock=0,last=performance.now(),CW,CH,S,cy,sy,cp,sp,ctr=[0,0,H/2],capI='',FG,CARD,DUR=16;
+$('tabs').innerHTML=NAMES.map((n,i)=>`<button onclick="setScene(${i})">${n}</button>`).join('');
+function setScene(i){cs=i;T=0;capI='';[...$('tabs').children].forEach((b,k)=>b.classList.toggle('on',k==i));$('info').innerHTML=INFO[i]}
+function size(){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;CW=r.width;CH=Math.round(CW*.62);cv.style.height=CH+'px';cv.width=CW*d;cv.height=CH*d;g.setTransform(d,0,0,d,0,0)}
+addEventListener('resize',size);
+cv.onpointerdown=e=>{drag=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId)};
+cv.onpointermove=e=>{if(!drag)return;baseYaw+=(e.clientX-drag[0])*.008;pitch=cl(pitch+(e.clientY-drag[1])*.006,-1.2,1.3);drag=[e.clientX,e.clientY]};
+cv.onpointerup=()=>{drag=null};
+$('pl').onclick=()=>{play=!play;$('pl').textContent=play?'⏸ Пауза':'▶ Пуск'};$('sc').oninput=e=>{T=+e.target.value};
+const ph=(a,b)=>ez(cl((T-a)/(b-a))),toV=p=>{const x=p[0]-ctr[0],y=p[1]-ctr[1],z=p[2]-ctr[2],X=x*cy-y*sy,Y=x*sy+y*cy;return[X,z*cp+Y*sp,Y*cp-z*sp]},scr=v=>[CW/2+S*v[0],CH/2-S*v[1]];
+const mk=(pts,c,e)=>{const q=pts.map(toV);return{q,d:avg(q)[2],c,e}};
+function flush(it){it.sort((a,b)=>b.d-a.d);for(const f of it){g.beginPath();f.q.forEach((v,j)=>{const p=scr(v);j?g.lineTo(...p):g.moveTo(...p)});g.closePath();g.fillStyle=f.c;g.fill();g.strokeStyle=f.e?'rgba(30,64,175,.85)':f.pl?'rgba(168,85,247,.8)':f.c;g.lineWidth=f.e?1.4:.8;g.stroke()}}
+function seg(a,b,col,wd,dash){const p=scr(toV(a)),q=scr(toV(b));g.beginPath();g.setLineDash(dash||[]);g.moveTo(...p);g.lineTo(...q);g.strokeStyle=col;g.lineWidth=wd;g.stroke();g.setLineDash([])}
+function tx(t,v,dx,dy,col){const p=scr(v);g.font='bold 16px system-ui,sans-serif';g.textAlign='center';g.lineWidth=4;g.strokeStyle=CARD;g.strokeText(t,p[0]+dx,p[1]+dy);g.fillStyle=col||FG;g.fillText(t,p[0]+dx,p[1]+dy)}
+function drawCut(c){const sep=ez(ph(.55,.9)),fa=ph(.38,.5),it=[];
+for(const pc of c.pcs){const tf=p=>add(add(rot(sub(p,pc.piv),pc.ax,pc.ang*sep),pc.piv),mul(pc.off,sep));pc.tf=tf;const vc=toV(tf(pc.ctr));
+for(const f of pc.F){const q=f.p.map(p=>toV(tf(p))),cen=avg(q);let n=cross(sub(q[1],q[0]),sub(q[2],q[0]));if(dot(n,sub(cen,vc))<0)n=mul(n,-1);
+const nn=mul(n,1/(nm(n)||1)),fr=nn[2]<-1e-6,sh=.6+.4*Math.max(0,dot(nn,[.3,.55,-.78]));let col,a;
+if(f.t=='c'){col=[249,115,22];a=fr?fa*.92:fa*.55*(1-sep)}else{col=f.t=='e'?[147,197,253]:[96,165,250];a=fr?.5+.45*sep:.28*(1-sep)}
+if(a>=.02)it.push({q,d:cen[2],c:`rgba(${col.map(x=>x*sh|0)},${a})`,e:f.t!='s'&&fr})}}
+const s=ez(ph(.15,.4)),pa=.24*cl((T-.12)/.05)*(1-ez(ph(.52,.62)));
+if(pa>.01){const q=c.pl.map(p=>toV(add(p,mul(c.sh,1-s))));it.push({q,d:avg(q)[2],c:`rgba(168,85,247,${pa})`,pl:1})}
+flush(it);
+for(const s of c.segs)if(T>s.w[0]&&T<s.w[1]){const pc=c.pcs[s.pc];seg(pc.tf(s.a),pc.tf(s.b),'#dc2626',4)}
+for(const l of c.lab)if(l.w?(T>l.w[0]&&T<l.w[1]):sep>.85)tx(l.t,toV(c.pcs[l.pc].tf(l.p)),l.dx,l.dy,l.w?'#dc2626':null)}
+function drawRot(){const phi=T2*ph(.2,.8),it=[],cr=Math.cos(phi),sr=Math.sin(phi),nS=Math.ceil(N*phi/T2);
+if(nS>0){const A=arc(0,phi,0,nS),B=arc(0,phi,H,nS);for(let i=0;i<nS;i++)it.push(mk([A[i],A[i+1],B[i+1],B[i]],'rgba(96,165,250,.4)'));
+it.push(mk([O3,...A],'rgba(147,197,253,.5)'),mk([[0,0,H],...B],'rgba(147,197,253,.5)'))}
+const Bp=[R*cr,R*sr,0],Cp=[R*cr,R*sr,H],O1=[0,0,H];it.push(mk([O3,Bp,Cp,O1],'rgba(249,115,22,.6)'));flush(it);
+seg([0,0,-.8],[0,0,H+.8],FG,1,[6,5]);seg(O3,O1,'#2563eb',5);seg(O3,Bp,'#dc2626',5);seg(O1,Cp,'#dc2626',5);seg(Bp,Cp,'#16a34a',4);
+const mid=(a,b)=>mul(add(a,b),.5);
+tx('O',toV(O3),-14,16);tx('O₁',toV(O1),-18,-6);tx('B',toV(Bp),10,16);tx('C',toV(Cp),10,-6);
+tx('R',toV(mid(O3,Bp)),0,22,'#dc2626');tx('H',toV(mid(O3,O1)),-16,0,'#2563eb');if(T>.1)tx('твірна',toV(mid(Bp,Cp)),34,0,'#16a34a');
+if(T>.8){tx('R — радіус (OB ⟂ осі)',toV([0,0,-.8]),0,24,'#dc2626');tx('H — висота (OO₁ на осі)',toV([0,0,-.8]),0,46,'#2563eb')}}
+function drawUnroll(){const u=ph(.3,.75),cu=ph(.15,.35),tl=ph(.55,.9),k=Math.max((1-u)/R,1e-4),M=48,it=[];
+const pos=(s,z)=>[Math.sin(k*s)/k,R-(1-Math.cos(k*s))/k,z],sa=i=>-PI*R+T2*R*i/M;
+for(let i=0;i<M;i++)it.push(mk([pos(sa(i),0),pos(sa(i+1),0),pos(sa(i+1),H),pos(sa(i),H)],`rgba(96,165,250,${i%2?.82:.9})`));
+const psi=tl*PI/2;for(const top of[1,0])it.push(mk(arc(0,T2,0,N).map(([x,y])=>{const v=R-y;return[x,R-v*Math.cos(psi),(top?H:0)+(top?1:-1)*v*Math.sin(psi)]}),'rgba(147,197,253,.92)',1));
+flush(it);
+if(cu>0){const z1=H*(1-cu);if(u<.02)seg(pos(PI*R,H),pos(PI*R,z1),'#dc2626',4);else for(const s of[-1,1])seg(pos(s*PI*R,0),pos(s*PI*R,H),'#dc2626',4);
+if(cu<1)tx('✂',toV(pos(PI*R,z1)),0,6,'#dc2626')}
+if(u>.98&&tl>.95){const y=R;seg([-PI*R,y,H/2],[PI*R,y,H/2],'#0f172a',2);tx('2πR — довжина кола основи',toV([0,y,H/2]),0,-8,'#0f172a');
+seg([PI*R+.4,y,0],[PI*R+.4,y,H],'#2563eb',3);tx('H',toV([PI*R+.4,y,H/2]),14,5,'#2563eb');
+seg([0,y,H+R],[R,y,H+R],'#dc2626',3);tx('R',toV([R/2,y,H+R]),0,-8,'#dc2626')}}
+function caption(){const L=[[[.2,'Беремо прямокутник OO₁CB. Сторона OO₁ — вісь обертання.'],[.8,'Обертаємо навколо OO₁: сторона OB описує основу, сторона BC — бічну поверхню.'],[9,'Утворився циліндр: OB = R — радіус, OO₁ = H — висота, BC — твірна.']],0,0,0,
+[[.15,'Циліндр: бічна поверхня й дві основи.'],[.35,'Розрізаємо бічну поверхню по твірній (боковий шов).'],[.55,'Розгортаємо бічну поверхню в площину.'],[.9,'Основи (круги) відкидаємо до розгортки.'],[9,'Розгортка: прямокутник 2πR × H і два круги радіуса R. S_біч = 2πRH.']]];
+let l=L[cs];if(!l){const c=CUT[cs];l=[[.15,'Циліндр радіуса R і висоти H.'],[.4,c.cap[0]],[.55,'Переріз заливаємо кольором.'],[.9,'Розрізаємо й розводимо частини, повертаючи перерізом до нас.'],[9,c.cap[1]]]}
+const t=l.find(x=>T<x[0])[1];if(t!=capI){capI=t;$('cap').textContent=t}}
+function draw(){const st=getComputedStyle(document.documentElement);FG=st.getPropertyValue('--fg').trim();CARD=st.getPropertyValue('--card').trim();
+const yaw=baseYaw+($('au').checked&&!drag?.35*Math.sin(clock*.5):0);cy=Math.cos(yaw);sy=Math.sin(yaw);cp=Math.cos(pitch);sp=Math.sin(pitch);
+S=CW/[12,17,17,17,25][cs];g.clearRect(0,0,CW,CH);g.lineCap='round';
+if(cs==0)drawRot();else if(cs==4)drawUnroll();else drawCut(CUT[cs]);caption()}
+function frame(n){const d=Math.min(.05,(n-last)/1000);last=n;clock+=d;if(play){T+=d/DUR;if(T>1.12)T=0}$('sc').value=Math.min(T,1);draw();requestAnimationFrame(frame)}
+size();setScene(0);requestAnimationFrame(frame);
+</script></body></html>
