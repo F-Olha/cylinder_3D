@@ -15,7 +15,7 @@ h1{font-size:21px;margin:2px 0 10px}
 .tabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:10px;position:relative}
 canvas{width:100%;display:block;touch-action:none;cursor:grab}
-#cap{position:absolute;left:12px;right:12px;bottom:10px;background:rgba(15,23,42,.8);color:#fff;border-radius:10px;padding:8px 12px;font-size:15px;pointer-events:none}
+#cap{margin-top:8px;background:rgba(15,23,42,.8);color:#fff;border-radius:10px;padding:8px 12px;font-size:15px;min-height:3.2em}@media(max-width:640px){#cap{min-height:5.2em}}
 .ctl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:10px 0}
 .ctl input[type=range]{flex:1;min-width:140px}.ctl label{font-size:14px;color:var(--mut)}
 #info{margin-top:4px;padding:12px 14px}.k{font-size:13px;color:var(--mut);margin:6px 2px}
@@ -62,7 +62,7 @@ const NAMES=['Утворення циліндра','Осьовий перері�
 const cv=$('cv'),g=cv.getContext('2d');let cs=0,T=0,play=true,drag=null,baseYaw=Y0,pitch=.35,clock=0,last=performance.now(),CW,CH,S,cy,sy,cp,sp,ctr=[0,0,H/2],capI='',FG,CARD,DUR=16;
 $('tabs').innerHTML=NAMES.map((n,i)=>`<button onclick="setScene(${i})">${n}</button>`).join('');
 function setScene(i){cs=i;T=0;capI='';[...$('tabs').children].forEach((b,k)=>b.classList.toggle('on',k==i));$('info').innerHTML=INFO[i]}
-function size(){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;CW=r.width;CH=Math.round(CW*.62);cv.style.height=CH+'px';cv.width=CW*d;cv.height=CH*d;g.setTransform(d,0,0,d,0,0)}
+function size(){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;CW=r.width;CH=Math.round(CW*(CW<640?1:.62));cv.style.height=CH+'px';cv.width=CW*d;cv.height=CH*d;g.setTransform(d,0,0,d,0,0)}
 addEventListener('resize',size);
 cv.onpointerdown=e=>{drag=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId)};
 cv.onpointermove=e=>{if(!drag)return;baseYaw+=(e.clientX-drag[0])*.008;pitch=cl(pitch+(e.clientY-drag[1])*.006,-1.2,1.3);drag=[e.clientX,e.clientY]};
@@ -109,7 +109,7 @@ let l=L[cs];if(!l){const c=CUT[cs];l=[[.15,'Циліндр радіуса R і �
 const t=l.find(x=>T<x[0])[1];if(t!=capI){capI=t;$('cap').textContent=t}}
 function draw(){const st=getComputedStyle(document.documentElement);FG=st.getPropertyValue('--fg').trim();CARD=st.getPropertyValue('--card').trim();
 const yaw=baseYaw+($('au').checked&&!drag?.35*Math.sin(clock*.5):0);cy=Math.cos(yaw);sy=Math.sin(yaw);cp=Math.cos(pitch);sp=Math.sin(pitch);
-S=CW/[12,17,17,17,25][cs];g.clearRect(0,0,CW,CH);g.lineCap='round';
+S=Math.min(CW/[10,13,13,13,15][cs],CH/[8,8,8,8,13.5][cs]);g.clearRect(0,0,CW,CH);g.lineCap='round';
 if(cs==0)drawRot();else if(cs==4)drawUnroll();else drawCut(CUT[cs]);caption()}
 function frame(n){const d=Math.min(.05,(n-last)/1000);last=n;clock+=d;if(play){T+=d/DUR;if(T>1.12)T=0}$('sc').value=Math.min(T,1);draw();requestAnimationFrame(frame)}
 size();setScene(0);requestAnimationFrame(frame);
